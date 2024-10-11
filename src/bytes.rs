@@ -1448,6 +1448,29 @@ fn _split_to_must_use() {}
 /// ```
 fn _split_off_must_use() {}
 
+#[cfg(feature = "zerocopy")]
+mod zerocopy {
+    use super::*;
+
+    // SAFETY: `<Bytes as Deref>::deref` calls `Bytes::as_slice`, which
+    // constructs its return value from the `ptr` and `len` fields. Neither of
+    // these fields are modified by any methods on `ByteSlice` or its
+    // super-traits (namely, `Deref::deref`). `Bytes` does not implement
+    // `ByteSliceMut`, `IntoByteSlice`, or `IntoByteSliceMut`. Thus, `<Bytes as
+    // Deref>::deref` is "stable" in the sense required by `ByteSlice`'s safety
+    // invariant.
+    unsafe impl ::zerocopy::ByteSlice for Bytes {}
+    // SAFETY: `split_at_unchecked` is implemented in terms of
+    // `Bytes::split_off`, which is implemented as required by
+    // `SplitByteSlice`'s safety invariant.
+    unsafe impl ::zerocopy::SplitByteSlice for Bytes {
+        unsafe fn split_at_unchecked(mut self, mid: usize) -> (Bytes, Bytes) {
+            let tail = self.split_off(mid);
+            (self, tail)
+        }
+    }
+}
+
 // fuzz tests
 #[cfg(all(test, loom))]
 mod fuzz {
